@@ -3,8 +3,8 @@ import {
   useRpc,
 } from "@getpaseo/plugin/client";
 import { useQuery } from "@tanstack/react-query";
-import { useMemo } from "react";
-import { ScrollView, Text, View } from "react-native";
+import { useMemo, useState } from "react";
+import { Pressable, ScrollView, Text, View } from "react-native";
 import { getRoadmap, type RoadmapItem, type RoadmapWave } from "../shared/roadmap";
 
 const STATUS_META: Record<RoadmapItem["status"], { glyph: string; label: string }> = {
@@ -47,12 +47,15 @@ function WaveCard({
   wave,
   theme,
   compact,
+  compactMode,
 }: {
   wave: RoadmapWave;
   theme: PluginWorkspacePanelProps["theme"];
   compact: boolean;
+  compactMode: boolean;
 }) {
   const c = theme.colors;
+  const doneCount = wave.items.filter((i) => i.status === "done").length;
   return (
     <View
       style={{
@@ -73,6 +76,11 @@ function WaveCard({
         <Text style={{ color: c.foregroundMuted, fontSize: 11 }}>{wave.window}</Text>
       </View>
       <ProgressBar progress={wave.progress} colors={{ accent: c.accent, surface2: c.surface2 }} />
+      {compactMode ? (
+        <Text style={{ color: c.foregroundMuted, fontSize: 11 }}>
+          {doneCount}/{wave.items.length} erledigt
+        </Text>
+      ) : (
       <View style={{ gap: 4 }}>
         {wave.items.map((item) => {
           const meta = STATUS_META[item.status];
@@ -101,11 +109,13 @@ function WaveCard({
           );
         })}
       </View>
+      )}
     </View>
   );
 }
 
 export function RoadmapPanel({ theme, layout }: PluginWorkspacePanelProps) {
+  const [compactMode, setCompactMode] = useState(false);
   const rpc = useRpc(getRoadmap);
   const query = useQuery({
     queryKey: ["roadmap"],
@@ -135,9 +145,33 @@ export function RoadmapPanel({ theme, layout }: PluginWorkspacePanelProps) {
         <Text style={{ color: c.foreground, fontSize: compact ? 16 : 18, fontWeight: "700" }}>
           {data?.roadmap.title ?? "Roadmap"}
         </Text>
-        <Text style={{ color: c.foregroundMuted, fontSize: 11 }}>
-          Stand {data?.roadmap.stand ?? "…"}
-        </Text>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={compactMode ? "Details anzeigen" : "Kompaktansicht"}
+            onPress={() => setCompactMode((v) => !v)}
+            style={{
+              paddingHorizontal: 10,
+              paddingVertical: 4,
+              borderRadius: 12,
+              borderWidth: 1,
+              borderColor: c.border,
+              backgroundColor: compactMode ? c.accent : c.surface1,
+            }}
+          >
+            <Text
+              style={{
+                color: compactMode ? c.accentForeground : c.foregroundMuted,
+                fontSize: 11,
+              }}
+            >
+              {compactMode ? "Details" : "Kompakt"}
+            </Text>
+          </Pressable>
+          <Text style={{ color: c.foregroundMuted, fontSize: 11 }}>
+            Stand {data?.roadmap.stand ?? "…"}
+          </Text>
+        </View>
       </View>
       {data?.error ? (
         <Text style={{ color: c.foregroundMuted, fontSize: 12 }}>{data.error}</Text>
@@ -145,7 +179,7 @@ export function RoadmapPanel({ theme, layout }: PluginWorkspacePanelProps) {
       <ScrollView horizontal showsHorizontalScrollIndicator={false}>
         <View style={styles.waves}>
           {(data?.roadmap.waves ?? []).map((wave) => (
-            <WaveCard key={wave.id} wave={wave} theme={theme} compact={compact} />
+            <WaveCard key={wave.id} wave={wave} theme={theme} compact={compact} compactMode={compactMode} />
           ))}
         </View>
       </ScrollView>
